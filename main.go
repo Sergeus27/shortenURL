@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 var urlStore = make(map[string]string)
@@ -21,6 +22,7 @@ func main() {
 	// log.Printf("ID:%s", generateShortID())
 	//почитать как работает http сервер(жизненный цикл)
 	http.HandleFunc("/api/shorten", shortenHandler)
+	http.HandleFunc("/", redirectHandler)
 	err := http.ListenAndServe(":8080", nil)
 	log.Fatal(err)
 
@@ -45,11 +47,25 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 		w.Write(jsonResponse)
 
 		urlStore[shortID] = shortenRequest.URL
-		log.Printf("создал добавил в мапу urlStore с ключем: %s и значением: %s", shortID, urlStore[shortID])
+		log.Printf("добавил в мапу urlStore с ключем: %s и значением: %s", shortID, urlStore[shortID])
 	} else {
 		http.Error(w, "must be POST", http.StatusNotFound)
 	}
 
+}
+
+func redirectHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "GET" {
+		id := strings.TrimPrefix(req.URL.Path, "/")
+		originalURL, exists := urlStore[id]
+		if exists {
+			http.Redirect(w, req, originalURL, http.StatusFound)
+		} else {
+			http.Error(w, "not found in urlStore", http.StatusNotFound)
+		}
+	} else {
+		http.Error(w, "must be POST", http.StatusNotFound)
+	}
 }
 
 func generateShortID() string {
