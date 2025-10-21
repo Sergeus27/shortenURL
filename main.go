@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	_ "github.com/lib/pq"
 	"log"
 	"math/rand"
 	"net/http"
@@ -21,6 +23,8 @@ type ShortenResponse struct {
 func main() {
 	// log.Printf("ID:%s", generateShortID())
 	//почитать как работает http сервер(жизненный цикл)
+	connectPostgre()
+
 	http.HandleFunc("/api/shorten", shortenHandler)
 	http.HandleFunc("/", redirectHandler)
 	err := http.ListenAndServe(":8080", nil)
@@ -52,6 +56,32 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "must be POST", http.StatusNotFound)
 	}
 
+}
+
+func connectPostgre() {
+	// Подключаемся к PostgreSQL
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=secret dbname=urlshortener sslmode=disable")
+	if err != nil {
+		log.Fatal("Не удалось открыть соединение с БД:", err)
+	}
+	defer db.Close()
+
+	// Проверяем живое подключение
+	if err := db.Ping(); err != nil {
+		log.Fatal("Не удалось подключиться к БД:", err)
+	}
+	log.Println("Подключение к PostgreSQL установлено!")
+
+	_, err = db.Exec(`
+    CREATE TABLE IF NOT EXISTS urls (
+        id TEXT PRIMARY KEY,
+        original_url TEXT NOT NULL
+    )
+`)
+	if err != nil {
+		log.Fatal("Не удалось создать таблицу urls:", err)
+	}
+	log.Println("Таблица 'urls' готова")
 }
 
 func redirectHandler(w http.ResponseWriter, req *http.Request) {
