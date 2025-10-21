@@ -26,6 +26,9 @@ func main() {
 	db := connectPostgre()
 	defer db.Close()
 
+	insertSQL(db)
+	selectSQL(db)
+
 	http.HandleFunc("/api/shorten", shortenHandler)
 	http.HandleFunc("/", redirectHandler)
 	err := http.ListenAndServe(":8080", nil)
@@ -51,7 +54,8 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(jsonResponse)
 
-		urlStore[shortID] = shortenRequest.URL
+		saveOriginalUrl(shortenRequest.URL, shortID)
+
 		log.Printf("добавил в мапу urlStore с ключем: %s и значением: %s", shortID, urlStore[shortID])
 	} else {
 		http.Error(w, "must be POST", http.StatusNotFound)
@@ -72,9 +76,10 @@ func connectPostgre() *sql.DB {
 	}
 	log.Println("Подключение к PostgreSQL установлено!")
 
+	db.Exec(`DROP TABLE urls`) //удалить после дебага
 	_, err = db.Exec(`
     CREATE TABLE IF NOT EXISTS urls (
-        id TEXT PRIMARY KEY,
+        short_id TEXT PRIMARY KEY,
         original_url TEXT NOT NULL
     )
 `)
@@ -86,10 +91,37 @@ func connectPostgre() *sql.DB {
 	return db
 }
 
+func selectSQL(db *sql.DB) {
+	rows, errQuery := db.Query("select * from urls")
+
+	if errQuery != nil {
+		log.Fatal("ЭТО ОШИБКА 2!", errQuery)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var shortID, originalURL string
+		err := rows.Scan(&shortID, &originalURL)
+		if err != nil {
+			log.Fatal("Ошибка чтения строки:", err)
+		}
+		log.Printf("Найдено: %s → %s", shortID, originalURL)
+	}
+
+}
+
+func insertSQL(db *sql.DB) {
+	_, errExec := db.Exec(`INSERT INTO urls VALUES ('om0V4S', 'https://go.dev')`)
+	if errExec != nil {
+		log.Fatal("ЭТО ОШИБКА!", errExec)
+	}
+}
+
 func redirectHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 		id := strings.TrimPrefix(req.URL.Path, "/")
-		originalURL, exists := urlStore[id]
+		originalURL, exists := getOriginalUrlById(id)
 		if exists {
 			http.Redirect(w, req, originalURL, http.StatusFound)
 		} else {
@@ -98,6 +130,15 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 	} else {
 		http.Error(w, "must be POST", http.StatusNotFound)
 	}
+}
+func getOriginalUrlById(id string) (string, bool) {
+
+	originalURL, exists := urlStore[id]
+	return originalURL, exists
+}
+
+func saveOriginalUrl(url string, id string) {
+	urlStore[id] = url
 }
 
 func generateShortID() string {
