@@ -23,7 +23,8 @@ type ShortenResponse struct {
 func main() {
 	// log.Printf("ID:%s", generateShortID())
 	//почитать как работает http сервер(жизненный цикл)
-	connectPostgre()
+	db := connectPostgre()
+	defer db.Close()
 
 	http.HandleFunc("/api/shorten", shortenHandler)
 	http.HandleFunc("/", redirectHandler)
@@ -58,13 +59,12 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func connectPostgre() {
+func connectPostgre() *sql.DB {
 	// Подключаемся к PostgreSQL
 	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=secret dbname=urlshortener sslmode=disable")
 	if err != nil {
 		log.Fatal("Не удалось открыть соединение с БД:", err)
 	}
-	defer db.Close()
 
 	// Проверяем живое подключение
 	if err := db.Ping(); err != nil {
@@ -82,6 +82,8 @@ func connectPostgre() {
 		log.Fatal("Не удалось создать таблицу urls:", err)
 	}
 	log.Println("Таблица 'urls' готова")
+
+	return db
 }
 
 func redirectHandler(w http.ResponseWriter, req *http.Request) {
