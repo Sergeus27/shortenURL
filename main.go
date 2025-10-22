@@ -48,7 +48,7 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 		log.Printf("URL from shorten handle - %s", shortenRequest.URL)
 
 		shortID := generateShortID()
-		response := ShortenResponse{ShortID: shortID}
+		response := ShortenResponse{ShortID: "http://localhost:8080/" + shortID}
 		jsonResponse, _ := json.Marshal(response)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(jsonResponse)
