@@ -108,7 +108,13 @@ func getOriginalUrlById(id string) (string, bool) {
 	row := db.QueryRow("select original_url from urls where short_id = $1", id)
 	var originalUrl string
 	err := row.Scan(&originalUrl)
-	log.Printf("успех или нет? %s, %t", originalUrl, err == nil)
+
+	if err == nil {
+		log.Printf("id(%s) -> original_url: %s", id, originalUrl)
+	} else {
+		log.Printf("не получилось достать original_url по id(%s):", id)
+	}
+
 	return originalUrl, err == nil
 }
 
@@ -118,7 +124,7 @@ func saveOriginalUrl(url string, id string) {
 	if errExec != nil {
 		log.Fatal("saveOriginalUrl: ", errExec)
 	}
-	log.Printf("Успех в сохранении %s -> %s", id, url)
+	log.Printf("Успех в сохранении короткого id: %s -> URL: %s в таблицу urls", id, url)
 }
 
 func generateShortID() string {
@@ -129,5 +135,6 @@ func generateShortID() string {
 	for i := 0; i < length; i++ {
 		shortID = shortID + string(symbols[rand.Intn(maxLen)])
 	}
+	log.Printf("короткий id сгенерирован: %s\nдоступ поссылке: %s", shortID, "http://localhost:8080/"+shortID)
 	return shortID
 }
