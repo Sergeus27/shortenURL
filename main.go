@@ -12,6 +12,8 @@ import (
 
 var urlStore = make(map[string]string)
 
+var db *sql.DB
+
 type ShortenRequest struct {
 	URL string `json:"url"`
 }
@@ -23,11 +25,8 @@ type ShortenResponse struct {
 func main() {
 	// log.Printf("ID:%s", generateShortID())
 	//почитать как работает http сервер(жизненный цикл)
-	db := connectPostgre()
+	db = connectPostgre()
 	defer db.Close()
-
-	insertSQL(db)
-	selectSQL(db)
 
 	http.HandleFunc("/api/shorten", shortenHandler)
 	http.HandleFunc("/", redirectHandler)
@@ -55,8 +54,6 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 		w.Write(jsonResponse)
 
 		saveOriginalUrl(shortenRequest.URL, shortID)
-
-		log.Printf("добавил в мапу urlStore с ключем: %s и значением: %s", shortID, urlStore[shortID])
 	} else {
 		http.Error(w, "must be POST", http.StatusNotFound)
 	}
@@ -91,33 +88,6 @@ func connectPostgre() *sql.DB {
 	return db
 }
 
-func selectSQL(db *sql.DB) {
-	rows, errQuery := db.Query("select * from urls")
-
-	if errQuery != nil {
-		log.Fatal("ЭТО ОШИБКА 2!", errQuery)
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var shortID, originalURL string
-		err := rows.Scan(&shortID, &originalURL)
-		if err != nil {
-			log.Fatal("Ошибка чтения строки:", err)
-		}
-		log.Printf("Найдено: %s → %s", shortID, originalURL)
-	}
-
-}
-
-func insertSQL(db *sql.DB) {
-	_, errExec := db.Exec(`INSERT INTO urls VALUES ('om0V4S', 'https://go.dev')`)
-	if errExec != nil {
-		log.Fatal("ЭТО ОШИБКА!", errExec)
-	}
-}
-
 func redirectHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 		id := strings.TrimPrefix(req.URL.Path, "/")
@@ -131,14 +101,24 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "must be POST", http.StatusNotFound)
 	}
 }
-func getOriginalUrlById(id string) (string, bool) {
 
-	originalURL, exists := urlStore[id]
-	return originalURL, exists
+func getOriginalUrlById(id string) (string, bool) {
+	// originalURL, exists := urlStore[id]
+	// return originalURL, exists
+	row := db.QueryRow("select original_url from urls where short_id = $1", id)
+	var originalUrl string
+	err := row.Scan(&originalUrl)
+	log.Printf("успех или нет? %s, %t", originalUrl, err == nil)
+	return originalUrl, err == nil
 }
 
 func saveOriginalUrl(url string, id string) {
-	urlStore[id] = url
+	// urlStore[id] = url
+	_, errExec := db.Exec("INSERT INTO urls (short_id, original_url) VALUES ($1, $2)", id, url)
+	if errExec != nil {
+		log.Fatal("saveOriginalUrl: ", errExec)
+	}
+	log.Printf("Успех в сохранении %s -> %s", id, url)
 }
 
 func generateShortID() string {
