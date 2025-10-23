@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-var urlStore = make(map[string]string)
-
 var db *sql.DB
 
 type ShortenRequest struct {
@@ -62,7 +60,7 @@ func shortenHandler(w http.ResponseWriter, req *http.Request) {
 
 func connectPostgre() *sql.DB {
 	// Подключаемся к PostgreSQL
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=secret dbname=urlshortener sslmode=disable")
+	db, err := sql.Open("postgres", "host=db port=5432 user=postgres password=secret dbname=urlshortener sslmode=disable")
 	if err != nil {
 		log.Fatal("Не удалось открыть соединение с БД:", err)
 	}

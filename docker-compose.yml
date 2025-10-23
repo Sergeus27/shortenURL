@@ -1,17 +1,31 @@
-version: '3.8'
-
 services:
+  app:
+    build: .                        # ← собирает из Dockerfile в текущей папке
+    ports:
+      - "8080:8080"                 # ← пробрасывает порт
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: secret
+      DB_NAME: urlshortener
+    depends_on:
+      - db                           # ← ждёт, пока запустится БД
+
   db:
     image: postgres:16
-    container_name: url-db
     environment:
       POSTGRES_DB: urlshortener
-      POSTGRES_USER: postgres
+      POSTGRES_USER: postgres       # ← значение по умлочанию но лучше указать, так как исполуется в app
       POSTGRES_PASSWORD: secret
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 
 volumes:
   pgdata:
